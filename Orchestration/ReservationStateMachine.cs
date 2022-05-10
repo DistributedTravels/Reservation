@@ -73,14 +73,15 @@ namespace Reservation.Orchestration
                     })
                     .If(context => context.Saga.HasOwnTransport,
                         context => context.Publish(context => context.Init<ReserveTravelEvent>(
-                                new ReserveTravelEvent(tId: context.Saga.TransportId, seats: context.Saga.NumberOfPeople, uId: context.Saga.UserId)
+                                new ReserveTravelEvent(travelId: context.Saga.TransportId, seats: context.Saga.NumberOfPeople, reserveId: context.Saga.ReservationId)
                                 { 
                                     CorrelationId = context.Saga.CorrelationId 
                                 })))
                     .Publish(context => context.Init<ReserveRoomsEvent>(
                         new ReserveRoomsEvent(hotelId: context.Saga.HotelId, beginDate: context.Saga.BeginDate,
                             endDate: context.Saga.EndDate, appartmentsAmount: context.Saga.BigRooms, casualRoomAmount: context.Saga.BigRooms, 
-                            userId: context.Saga.UserId, reservationNumber: context.Saga.ReservationId)
+                            userId: context.Saga.UserId, reservationNumber: context.Saga.ReservationId, breakfast: context.Saga.HasBreakfast,
+                            wifi: context.Saga.HasInternet)
                         { 
                             CorrelationId = context.Saga.CorrelationId
                         }))
@@ -172,7 +173,7 @@ namespace Reservation.Orchestration
                                 CorrelationId = context.Saga.CorrelationId
                             }))
                         .Publish(context => context.Init<UnreserveTravelEvent>(
-                            new UnreserveTravelEvent(tId: context.Saga.TransportId, uId: context.Saga.UserId, seats: context.Saga.NumberOfPeople) 
+                            new UnreserveTravelEvent(reserveId: context.Saga.ReservationId) 
                             { 
                                 CorrelationId = context.Saga.CorrelationId
                             }))
