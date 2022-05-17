@@ -74,15 +74,21 @@ namespace Reservation.Orchestration
                     .If(context => context.Saga.HasOwnTransport,
                         context => context.Publish(context => context.Init<ReserveTravelEvent>(
                                 new ReserveTravelEvent(travelId: context.Saga.TransportId, seats: context.Saga.NumberOfPeople, reserveId: context.Saga.ReservationId)
-                                { 
-                                    CorrelationId = context.Saga.CorrelationId 
+                                {
+                                    CorrelationId = context.Saga.CorrelationId
                                 })))
                     .Publish(context => context.Init<ReserveRoomsEvent>(
                         new ReserveRoomsEvent(hotelId: context.Saga.HotelId, beginDate: context.Saga.BeginDate,
-                            endDate: context.Saga.EndDate, appartmentsAmount: context.Saga.BigRooms, casualRoomAmount: context.Saga.BigRooms, 
+                            endDate: context.Saga.EndDate, appartmentsAmount: context.Saga.BigRooms, casualRoomAmount: context.Saga.BigRooms,
                             userId: context.Saga.UserId, reservationNumber: context.Saga.ReservationId, breakfast: context.Saga.HasBreakfast,
                             wifi: context.Saga.HasInternet)
-                        { 
+                        {
+                            CorrelationId = context.Saga.CorrelationId
+                        }))
+                    .RespondAsync(context => context.Init<ReserveOfferReplyEvent>(
+                        new ReserveOfferReplyEvent()
+                        {
+                            Id = context.Saga.CorrelationId,
                             CorrelationId = context.Saga.CorrelationId
                         }))
                     .TransitionTo(AwaitingHotelAndTransportReservation));
