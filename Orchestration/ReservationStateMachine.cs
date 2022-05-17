@@ -71,6 +71,12 @@ namespace Reservation.Orchestration
                         context.Saga.PaymentInformationReceived = false;
                         context.Saga.PaymentSuccesful = false;
                     })
+                    .RespondAsync(context => context.Init<ReserveOfferReplyEvent>(
+                        new ReserveOfferReplyEvent()
+                        {
+                            Id = context.Saga.CorrelationId,
+                            CorrelationId = context.Saga.CorrelationId
+                        }))
                     .If(context => context.Saga.HasOwnTransport,
                         context => context.Publish(context => context.Init<ReserveTravelEvent>(
                                 new ReserveTravelEvent(travelId: context.Saga.TransportId, seats: context.Saga.NumberOfPeople, reserveId: context.Saga.ReservationId)
@@ -83,12 +89,6 @@ namespace Reservation.Orchestration
                             userId: context.Saga.UserId, reservationNumber: context.Saga.ReservationId, breakfast: context.Saga.HasBreakfast,
                             wifi: context.Saga.HasInternet)
                         {
-                            CorrelationId = context.Saga.CorrelationId
-                        }))
-                    .RespondAsync(context => context.Init<ReserveOfferReplyEvent>(
-                        new ReserveOfferReplyEvent()
-                        {
-                            Id = context.Saga.CorrelationId,
                             CorrelationId = context.Saga.CorrelationId
                         }))
                     .TransitionTo(AwaitingHotelAndTransportReservation));
