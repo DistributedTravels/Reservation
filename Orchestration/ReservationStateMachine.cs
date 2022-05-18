@@ -77,21 +77,33 @@ namespace Reservation.Orchestration
                             Id = context.Saga.CorrelationId,
                             CorrelationId = context.Saga.CorrelationId
                         }))
-                    .If(context => context.Saga.HasOwnTransport,
-                        context => context.Publish(context => context.Init<ReserveTravelEvent>(
-                                new ReserveTravelEvent(travelId: context.Saga.TransportId, seats: context.Saga.NumberOfPeople, reserveId: context.Saga.ReservationId)
-                                {
-                                    CorrelationId = context.Saga.CorrelationId
-                                })))
-                    .Publish(context => context.Init<ReserveRoomsEvent>(
-                        new ReserveRoomsEvent(hotelId: context.Saga.HotelId, beginDate: context.Saga.BeginDate,
-                            endDate: context.Saga.EndDate, appartmentsAmount: context.Saga.BigRooms, casualRoomAmount: context.Saga.BigRooms,
-                            userId: context.Saga.UserId, reservationNumber: context.Saga.ReservationId, breakfast: context.Saga.HasBreakfast,
-                            wifi: context.Saga.HasInternet)
+                    .PublishAsync(context => context.Init<ReserveRoomsEvent>(
+                        new ReserveRoomsEvent()
                         {
+                            HotelId = context.Saga.HotelId,
+                            BeginDate = context.Saga.BeginDate,
+                            EndDate = context.Saga.EndDate,
+                            AppartmentsAmount = context.Saga.BigRooms,
+                            CasualRoomAmount = context.Saga.SmallRooms,
+                            UserId = context.Saga.UserId,
+                            ReservationNumber = context.Saga.ReservationId,
+                            Breakfast = context.Saga.HasBreakfast,
+                            Wifi = context.Saga.HasInternet,
                             CorrelationId = context.Saga.CorrelationId
                         }))
-                    .TransitionTo(AwaitingHotelAndTransportReservation));
+                    .IfElse(context => context.Saga.HasOwnTransport == false,
+                        context => context
+                            .PublishAsync(context => context.Init<ReserveTravelEvent>(
+                                new ReserveTravelEvent()
+                                {
+                                    TravelId = context.Saga.TransportId,
+                                    Seats = context.Saga.NumberOfPeople,
+                                    ReserveId = context.Saga.ReservationId,
+                                    CorrelationId = context.Saga.CorrelationId
+                                }))
+                            .TransitionTo(AwaitingHotelAndTransportReservation),
+                        context => context
+                            .TransitionTo(AwaitingHotelReservation)));
 
             During(AwaitingHotelAndTransportReservation,
                 When(ReserveRoomsEventReply)
@@ -115,7 +127,7 @@ namespace Reservation.Orchestration
                     })
                     .TransitionTo(AwaitingHotelReservation),
                 When(AskForReservationStatusEvent)
-                    .Respond(context => context.Init<AskForReservationStatusReplyEvent>(
+                    .RespondAsync(context => context.Init<AskForReservationStatusReplyEvent>(
                         new AskForReservationStatusReplyEvent() 
                         {
                             ReservationId = context.Saga.ReservationId,
@@ -123,7 +135,7 @@ namespace Reservation.Orchestration
                             ReservationStatus = AskForReservationStatusReplyEvent.Status.WAITING_FOR_RESERVATION
                         })));
 
-            During(AwaitingHotelReservation,
+            During(AwaitingTransportReservation,
                   When(ReserveTravelReplyEvent)
                     .Then(context =>
                     {
@@ -135,7 +147,7 @@ namespace Reservation.Orchestration
                     })
                     .TransitionTo(TemporarilyReserved),
                   When(AskForReservationStatusEvent)
-                    .Respond(context => context.Init<AskForReservationStatusReplyEvent>(
+                    .RespondAsync(context => context.Init<AskForReservationStatusReplyEvent>(
                         new AskForReservationStatusReplyEvent()
                         {
                             ReservationId = context.Saga.ReservationId,
@@ -143,7 +155,7 @@ namespace Reservation.Orchestration
                             ReservationStatus = AskForReservationStatusReplyEvent.Status.WAITING_FOR_RESERVATION
                         })));
 
-            During(AwaitingTransportReservation,
+            During(AwaitingHotelReservation,
                  When(ReserveRoomsEventReply)
                     .Then(context =>
                     {
@@ -155,7 +167,7 @@ namespace Reservation.Orchestration
                     })
                     .TransitionTo(TemporarilyReserved),
                  When(AskForReservationStatusEvent)
-                    .Respond(context => context.Init<AskForReservationStatusReplyEvent>(
+                    .RespondAsync(context => context.Init<AskForReservationStatusReplyEvent>(
                         new AskForReservationStatusReplyEvent()
                         {
                             ReservationId = context.Saga.ReservationId,
@@ -173,14 +185,16 @@ namespace Reservation.Orchestration
                             }))
                         .TransitionTo(TemporarilyReserved),
                     context => context
-                        .Publish(context => context.Init<UnreserveRoomsEvent>(
-                            new UnreserveRoomsEvent(reservationNumber: context.Saga.ReservationId) 
+                        .PublishAsync(context => context.Init<UnreserveRoomsEvent>(
+                            new UnreserveRoomsEvent() 
                             {
+                                ReservationNumber = context.Saga.ReservationId,
                                 CorrelationId = context.Saga.CorrelationId
                             }))
-                        .Publish(context => context.Init<UnreserveTravelEvent>(
-                            new UnreserveTravelEvent(reserveId: context.Saga.ReservationId) 
+                        .PublishAsync(context => context.Init<UnreserveTravelEvent>(
+                            new UnreserveTravelEvent() 
                             { 
+                                ReserveId = context.Saga.ReservationId,
                                 CorrelationId = context.Saga.CorrelationId
                             }))
                         .TransitionTo(ReservationFailed)));
@@ -208,13 +222,13 @@ namespace Reservation.Orchestration
                         context.Saga.Price = payload.Message.Price;
                         context.Saga.CardCredentials = payload.Message.Card;
                     })
-                    .Publish(context => context.Init<ProcessPaymentEvent>(
+                    .PublishAsync(context => context.Init<ProcessPaymentEvent>(
                         new ProcessPaymentEvent(card: context.Saga.CardCredentials, price: context.Saga.Price) 
                         { 
                             CorrelationId = context.Saga.CorrelationId
                         })),
                 When(AskForReservationStatusEvent)
-                    .Respond(context => context.Init<AskForReservationStatusReplyEvent>(
+                    .RespondAsync(context => context.Init<AskForReservationStatusReplyEvent>(
                         new AskForReservationStatusReplyEvent()
                         {
                             ReservationId = context.Saga.ReservationId,
@@ -228,7 +242,7 @@ namespace Reservation.Orchestration
 
             During(SuccessfullyBooked,
                 When(AskForReservationStatusEvent)
-                    .Respond(context => context.Init<AskForReservationStatusReplyEvent>(
+                    .RespondAsync(context => context.Init<AskForReservationStatusReplyEvent>(
                         new AskForReservationStatusReplyEvent()
                         {
                             ReservationId = context.Saga.ReservationId,
@@ -240,7 +254,7 @@ namespace Reservation.Orchestration
 
             During(ReservationFailed,
                 When(AskForReservationStatusEvent)
-                    .Respond(context => context.Init<AskForReservationStatusReplyEvent>(
+                    .RespondAsync(context => context.Init<AskForReservationStatusReplyEvent>(
                         new AskForReservationStatusReplyEvent()
                         {
                             ReservationId = context.Saga.ReservationId,
