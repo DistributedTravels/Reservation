@@ -103,7 +103,14 @@ namespace Reservation.Orchestration
                                 }))
                             .TransitionTo(AwaitingHotelAndTransportReservation),
                         context => context
+                            .Then(context => context.Saga.TravelReservationSuccesful = true)
                             .TransitionTo(AwaitingHotelReservation)));
+
+            WhenEnter(AwaitingHotelAndTransportReservation, binder => binder
+                .Then(context =>
+                {
+                    Console.WriteLine("ENTERED AWAITING HOTELS AND TRANSPORT RESERVATION");
+                }));
 
             During(AwaitingHotelAndTransportReservation,
                 When(ReserveRoomsEventReply)
@@ -135,6 +142,12 @@ namespace Reservation.Orchestration
                             ReservationStatus = AskForReservationStatusReplyEvent.Status.WAITING_FOR_RESERVATION
                         })));
 
+            WhenEnter(AwaitingTransportReservation, binder => binder
+                .Then(context =>
+                {
+                    Console.WriteLine("ENTERED AWAITING TRANSPORT RESERVATION");
+                }));
+
             During(AwaitingTransportReservation,
                   When(ReserveTravelReplyEvent)
                     .Then(context =>
@@ -154,6 +167,12 @@ namespace Reservation.Orchestration
                             CorrelationId = context.Saga.CorrelationId,
                             ReservationStatus = AskForReservationStatusReplyEvent.Status.WAITING_FOR_RESERVATION
                         })));
+
+            WhenEnter(AwaitingHotelReservation, binder => binder
+                .Then(context =>
+                {
+                    Console.WriteLine("ENTERED AWAITING HOTEL RESERVATION");
+                }));
 
             During(AwaitingHotelReservation,
                  When(ReserveRoomsEventReply)
@@ -176,6 +195,10 @@ namespace Reservation.Orchestration
                         })));
 
             WhenEnter(TemporarilyReserved, binder => binder
+                .Then(context =>
+                {
+                    Console.WriteLine("ENTERED TEMPORARILY RESERVED");  
+                })
                 .IfElse(context => context.Saga.HotelReservationSuccesful && context.Saga.TravelReservationSuccesful,
                     context => context
                         .Schedule(ReservationTimeoutEvent, context => context.Init<ReservationTimeoutEvent>(
@@ -185,18 +208,6 @@ namespace Reservation.Orchestration
                             }))
                         .TransitionTo(TemporarilyReserved),
                     context => context
-                        .PublishAsync(context => context.Init<UnreserveRoomsEvent>(
-                            new UnreserveRoomsEvent() 
-                            {
-                                ReservationNumber = context.Saga.ReservationId,
-                                CorrelationId = context.Saga.CorrelationId
-                            }))
-                        .PublishAsync(context => context.Init<UnreserveTravelEvent>(
-                            new UnreserveTravelEvent() 
-                            { 
-                                ReserveId = context.Saga.ReservationId,
-                                CorrelationId = context.Saga.CorrelationId
-                            }))
                         .TransitionTo(ReservationFailed)));
 
             During(TemporarilyReserved,
@@ -222,9 +233,16 @@ namespace Reservation.Orchestration
                         context.Saga.Price = payload.Message.Price;
                         context.Saga.CardCredentials = payload.Message.Card;
                     })
+                    .RespondAsync(context => context.Init<PaymentInformationForReservationReplyEvent>(
+                        new PaymentInformationForReservationReplyEvent()
+                        {
+                            CorrelationId = context.Saga.CorrelationId
+                        }))
                     .PublishAsync(context => context.Init<ProcessPaymentEvent>(
                         new ProcessPaymentEvent(card: context.Saga.CardCredentials, price: context.Saga.Price) 
                         { 
+                            Card = context.Saga.CardCredentials,
+                            Price = context.Saga.Price,
                             CorrelationId = context.Saga.CorrelationId
                         })),
                 When(AskForReservationStatusEvent)
@@ -240,6 +258,12 @@ namespace Reservation.Orchestration
                     .Unschedule(ReservationTimeoutEvent)
                     .TransitionTo(ReservationFailed));
 
+            WhenEnter(SuccessfullyBooked, binder => binder
+                .Then(context =>
+                {
+                    Console.WriteLine("ENTERED SUCCESSFULLY BOOKED");
+                }));
+
             During(SuccessfullyBooked,
                 When(AskForReservationStatusEvent)
                     .RespondAsync(context => context.Init<AskForReservationStatusReplyEvent>(
@@ -249,8 +273,25 @@ namespace Reservation.Orchestration
                             CorrelationId = context.Saga.CorrelationId,
                             ReservationStatus = AskForReservationStatusReplyEvent.Status.SUCCESFUL,
                             Price = context.Saga.Price
-                        }))
-                    .Finalize());
+                        })));
+
+            WhenEnter(ReservationFailed, binder => binder
+                .Then(context =>
+                {
+                    Console.WriteLine("ENTERED RESERVATION FAILED");
+                })
+                .PublishAsync(context => context.Init<UnreserveRoomsEvent>(
+                    new UnreserveRoomsEvent() 
+                    {
+                        ReservationNumber = context.Saga.ReservationId,
+                        CorrelationId = context.Saga.CorrelationId
+                    }))
+                .PublishAsync(context => context.Init<UnreserveTravelEvent>(
+                    new UnreserveTravelEvent() 
+                    { 
+                        ReserveId = context.Saga.ReservationId,
+                        CorrelationId = context.Saga.CorrelationId
+                    })));
 
             During(ReservationFailed,
                 When(AskForReservationStatusEvent)
