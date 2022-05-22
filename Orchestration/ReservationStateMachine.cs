@@ -70,6 +70,7 @@ namespace Reservation.Orchestration
                         context.Saga.HotelReservationSuccesful = false;
                         context.Saga.PaymentInformationReceived = false;
                         context.Saga.PaymentSuccesful = false;
+                        context.Saga.UserId = payload.Message.UserId;
                     })
                     .RespondAsync(context => context.Init<ReserveOfferReplyEvent>(
                         new ReserveOfferReplyEvent()
@@ -221,7 +222,9 @@ namespace Reservation.Orchestration
                         context.Saga.PaymentSuccesful = payload.Message.Response == Models.Payments.ProcessPaymentReplyEvent.State.ACCEPTED;
                     })
                     .Unschedule(ReservationTimeoutEvent)
-                    .TransitionTo(SuccessfullyBooked),
+                    .IfElse(context => context.Saga.PaymentSuccesful,
+                        context => context.TransitionTo(SuccessfullyBooked),
+                        context => context.TransitionTo(ReservationFailed)),
                When(PaymentInformationForReservationEvent)
                     .Then(context =>
                     {
@@ -302,6 +305,12 @@ namespace Reservation.Orchestration
                             CorrelationId = context.Saga.CorrelationId,
                             ReservationStatus = AskForReservationStatusReplyEvent.Status.FAILED,
                             Price = context.Saga.Price
+                        })),
+                When(PaymentInformationForReservationEvent)
+                    .RespondAsync(context => context.Init<PaymentInformationForReservationReplyEvent>(
+                        new PaymentInformationForReservationReplyEvent()
+                        {
+                            CorrelationId = context.Saga.CorrelationId
                         })));
         }
     }
