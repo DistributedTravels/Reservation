@@ -24,6 +24,7 @@ namespace Reservation.Services
             entity.EndDate = entity.EndDate.ToUniversalTime();
             entity.DepartureTime = entity.DepartureTime.ToUniversalTime();
             _context.Reservations.Add(entity);
+            _context.SaveChanges();
         }
     }
 }

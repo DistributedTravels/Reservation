@@ -39,5 +39,6 @@ namespace Reservation.Orchestration
         public bool HasOwnTransport { get; set; }
         public double HotelPrice { get; set; }
         public double TransportPrice { get; set; }
+        public bool HasPromotionCode { get; set; }
     }
 }

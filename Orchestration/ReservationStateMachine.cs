@@ -72,6 +72,7 @@ namespace Reservation.Orchestration
                         context.Saga.PaymentInformationReceived = false;
                         context.Saga.PaymentSuccesful = false;
                         context.Saga.UserId = payload.Message.UserId;
+                        context.Saga.HasPromotionCode = payload.Message.HasPromotionCode;
                     })
                     .RespondAsync(context => context.Init<ReserveOfferReplyEvent>(
                         new ReserveOfferReplyEvent()
@@ -122,6 +123,7 @@ namespace Reservation.Orchestration
                         {
                             throw new Exception("Unable to retrieve payload with hotels response");
                         }
+                        context.Saga.HotelPrice = payload.Message.Price;
                         context.Saga.HotelReservationSuccesful = payload.Message.Answer == Models.Hotels.ReserveRoomsEventReply.State.RESERVED;
                     })
                     .TransitionTo(AwaitingTransportReservation),
@@ -132,6 +134,7 @@ namespace Reservation.Orchestration
                         {
                             throw new Exception("Unable to retrieve payload with transport response");
                         }
+                        context.Saga.TransportPrice = payload.Message.Price;
                         context.Saga.TravelReservationSuccesful = payload.Message.Answer == Models.Transport.ReserveTravelReplyEvent.State.RESERVED;
                     })
                     .TransitionTo(AwaitingHotelReservation),
@@ -158,6 +161,7 @@ namespace Reservation.Orchestration
                         {
                             throw new Exception("Unable to retrieve payload with transport response");
                         }
+                        context.Saga.TransportPrice = payload.Message.Price;
                         context.Saga.TravelReservationSuccesful = payload.Message.Answer == Models.Transport.ReserveTravelReplyEvent.State.RESERVED;
                     })
                     .TransitionTo(TemporarilyReserved),
@@ -184,6 +188,7 @@ namespace Reservation.Orchestration
                         {
                             throw new Exception("Unable to retrieve payload with hotels response");
                         }
+                        context.Saga.HotelPrice = payload.Message.Price;
                         context.Saga.HotelReservationSuccesful = payload.Message.Answer == Models.Hotels.ReserveRoomsEventReply.State.RESERVED;
                     })
                     .TransitionTo(TemporarilyReserved),
@@ -234,7 +239,7 @@ namespace Reservation.Orchestration
                             throw new Exception("Unable to retrieve payload with transport response");
                         }
                         context.Saga.PaymentInformationReceived = true;
-                        context.Saga.Price = payload.Message.Price;
+                        context.Saga.Price = context.Saga.HotelPrice + context.Saga.TransportPrice * context.Saga.NumberOfPeople * (context.Saga.HasPromotionCode ? 0.9 : 1.0);
                         context.Saga.CardCredentials = payload.Message.Card;
                     })
                     .RespondAsync(context => context.Init<PaymentInformationForReservationReplyEvent>(
