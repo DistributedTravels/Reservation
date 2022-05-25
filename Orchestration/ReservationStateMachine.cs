@@ -3,6 +3,7 @@ using Models.Reservations;
 using Models.Transport;
 using Models.Hotels;
 using Models.Payments;
+using Models.Reservations.Dto;
 
 namespace Reservation.Orchestration
 {
@@ -265,7 +266,35 @@ namespace Reservation.Orchestration
                 .Then(context =>
                 {
                     Console.WriteLine("ENTERED SUCCESSFULLY BOOKED");
-                }));
+                })
+                .PublishAsync(context => context.Init<SaveReservationToDatabaseEvent>(
+                    new SaveReservationToDatabaseEvent()
+                    {
+                        CorrelationId = context.Saga.CorrelationId,
+                        Reservation = new ReservationDto()
+                        {
+                            UserId = context.Saga.UserId,
+                            TransportId = context.Saga.TransportId,
+                            HotelName = context.Saga.HotelName,
+                            HotelId = context.Saga.HotelId,
+                            Destination = context.Saga.Destination,
+                            Departure = context.Saga.Departure,
+                            NumberOfPeople = context.Saga.NumberOfPeople,
+                            BeginDate = context.Saga.BeginDate,
+                            EndDate = context.Saga.EndDate,
+                            DepartureTime = context.Saga.DepartureTime,
+                            Status = "BOOKED",
+                            Adults = context.Saga.Adults,
+                            ChildrenUnder3 = context.Saga.ChildrenUnder3,
+                            ChildrenUnder10 = context.Saga.ChildrenUnder10,
+                            ChildrenUnder18 = context.Saga.ChildrenUnder18,
+                            SmallRooms = context.Saga.SmallRooms,
+                            BigRooms = context.Saga.BigRooms,
+                            HasInternet = context.Saga.HasInternet,
+                            HasBreakfast = context.Saga.HasBreakfast,
+                            HasOwnTransport = context.Saga.HasOwnTransport
+                        }
+                    })));
 
             During(SuccessfullyBooked,
                 When(AskForReservationStatusEvent)

@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Reservation.Database;
 using MassTransit;
 using Reservation.Orchestration;
+using Reservation.Consumers;
+using Reservation.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,8 +21,19 @@ builder.Services.AddDbContext<ReservationsContext>(
         .EnableSensitiveDataLogging()
         .EnableDetailedErrors()
 );
+builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddMassTransit(cfg =>
 {
+    cfg.AddConsumer<GetReservationsFromDatabaseEventConsumer>(context =>
+    {
+        context.UseMessageRetry(r => r.Interval(3, 1000));
+        context.UseInMemoryOutbox();
+    });
+    cfg.AddConsumer<SaveReservationToDatabaseEventConsumer>(context =>
+    {
+        context.UseMessageRetry(r => r.Interval(3, 1000));
+        context.UseInMemoryOutbox();
+    });
     cfg.AddSagaStateMachine<ReservationStateMachine, StatefulReservation>().InMemoryRepository();
     cfg.AddDelayedMessageScheduler();
     cfg.UsingRabbitMq((context, rabbitCfg) =>
@@ -35,4 +48,12 @@ builder.Services.AddMassTransit(cfg =>
     });
 });
 var app = builder.Build();
+using (var contScope = app.Services.CreateScope())
+using (var context = contScope.ServiceProvider.GetRequiredService<ReservationsContext>())
+{
+    // Ensure Deleted possible to use for testing
+    context.Database.EnsureCreated();
+    context.SaveChanges(); // save to DB
+    Console.WriteLine("Done clearing database");
+}
 app.Run();
