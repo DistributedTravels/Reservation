@@ -239,7 +239,7 @@ namespace Reservation.Orchestration
                             throw new Exception("Unable to retrieve payload with transport response");
                         }
                         context.Saga.PaymentInformationReceived = true;
-                        context.Saga.Price = context.Saga.HotelPrice + context.Saga.TransportPrice * context.Saga.NumberOfPeople * (context.Saga.HasPromotionCode ? 0.9 : 1.0);
+                        context.Saga.Price = 1.5 * (context.Saga.HotelPrice + context.Saga.TransportPrice * context.Saga.NumberOfPeople) * (context.Saga.HasPromotionCode ? 0.9 : 1.0);
                         context.Saga.CardCredentials = payload.Message.Card;
                     })
                     .RespondAsync(context => context.Init<PaymentInformationForReservationReplyEvent>(
