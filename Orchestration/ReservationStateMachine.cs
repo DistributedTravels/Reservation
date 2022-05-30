@@ -15,6 +15,7 @@ namespace Reservation.Orchestration
         public State AwaitingHotelReservation { get; set; }
         public State AwaitingTransportReservation { get; set; }
         public State ReservationFailed { get; set; }
+        public State ProcessingPayment { get; set; }
         public Event<ReserveOfferEvent> ReserveOfferEvent { get; set; }
         public Event<ReserveTravelReplyEvent> ReserveTravelReplyEvent { get; set; }
         public Event<ReserveRoomsEventReply> ReserveRoomsEventReply { get; set; }
@@ -25,7 +26,8 @@ namespace Reservation.Orchestration
 
         public ReservationStateMachine()
         {
-            InstanceState(x => x.CurrentState, TemporarilyReserved, AwaitingHotelAndTransportReservation, AwaitingHotelReservation, AwaitingTransportReservation, ReservationFailed, SuccessfullyBooked);
+            InstanceState(x => x.CurrentState, TemporarilyReserved, AwaitingHotelAndTransportReservation, 
+                AwaitingHotelReservation, AwaitingTransportReservation, ReservationFailed, SuccessfullyBooked, ProcessingPayment);
             Event(() => ReserveOfferEvent, x => { x.CorrelateById(context => context.Message.CorrelationId); x.SelectId(context => context.Message.CorrelationId); });
             Event(() => ReserveTravelReplyEvent, x => { x.CorrelateById(context => context.Message.CorrelationId); });
             Event(() => ReserveRoomsEventReply, x => { x.CorrelateById(context => context.Message.CorrelationId); });
@@ -218,19 +220,6 @@ namespace Reservation.Orchestration
                         .TransitionTo(ReservationFailed)));
 
             During(TemporarilyReserved,
-                When(ProcessPaymentReplyEvent)
-                    .Then(context =>
-                    {
-                        if (!context.TryGetPayload(out SagaConsumeContext<StatefulReservation, ProcessPaymentReplyEvent> payload))
-                        {
-                            throw new Exception("Unable to retrieve payload with hotels response");
-                        }
-                        context.Saga.PaymentSuccesful = payload.Message.Response == Models.Payments.ProcessPaymentReplyEvent.State.ACCEPTED;
-                    })
-                    .Unschedule(ReservationTimeoutEvent)
-                    .IfElse(context => context.Saga.PaymentSuccesful,
-                        context => context.TransitionTo(SuccessfullyBooked),
-                        context => context.TransitionTo(ReservationFailed)),
                When(PaymentInformationForReservationEvent)
                     .Then(context =>
                     {
@@ -261,6 +250,32 @@ namespace Reservation.Orchestration
                             ReservationId = context.Saga.ReservationId,
                             CorrelationId = context.Saga.CorrelationId,
                             ReservationStatus = AskForReservationStatusReplyEvent.Status.WAITING_FOR_PAYMENT,
+                            Price = context.Saga.Price
+                        })),
+                When(ReservationTimeoutEvent.Received)
+                    .Unschedule(ReservationTimeoutEvent)
+                    .TransitionTo(ReservationFailed));
+
+            During(ProcessingPayment,
+                When(ProcessPaymentReplyEvent)
+                    .Then(context =>
+                    {
+                        if (!context.TryGetPayload(out SagaConsumeContext<StatefulReservation, ProcessPaymentReplyEvent> payload))
+                        {
+                            throw new Exception("Unable to retrieve payload with hotels response");
+                        }
+                        context.Saga.PaymentSuccesful = payload.Message.Response == Models.Payments.ProcessPaymentReplyEvent.State.ACCEPTED;
+                    })
+                    .IfElse(context => context.Saga.PaymentSuccesful,
+                        context => context.TransitionTo(SuccessfullyBooked),
+                        context => context.TransitionTo(TemporarilyReserved)),
+                When(AskForReservationStatusEvent)
+                    .RespondAsync(context => context.Init<AskForReservationStatusReplyEvent>(
+                        new AskForReservationStatusReplyEvent()
+                        {
+                            ReservationId = context.Saga.ReservationId,
+                            CorrelationId = context.Saga.CorrelationId,
+                            ReservationStatus = AskForReservationStatusReplyEvent.Status.PROCESSING_PAYMENT,
                             Price = context.Saga.Price
                         })),
                 When(ReservationTimeoutEvent.Received)
@@ -299,6 +314,14 @@ namespace Reservation.Orchestration
                             HasBreakfast = context.Saga.HasBreakfast,
                             HasOwnTransport = context.Saga.HasOwnTransport
                         }
+                    }))
+                .Unschedule(ReservationTimeoutEvent)
+                .PublishAsync(context => context.Init<NewReservationSuccessfullyBookedEvent>(
+                    new NewReservationSuccessfullyBookedEvent()
+                    {
+                        Destination = context.Saga.Destination,
+                        HotelName = context.Saga.HotelName,
+                        User = context.Saga.CardCredentials.FullName
                     })));
 
             During(SuccessfullyBooked,
