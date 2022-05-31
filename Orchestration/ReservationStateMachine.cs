@@ -242,7 +242,8 @@ namespace Reservation.Orchestration
                             Card = context.Saga.CardCredentials,
                             Price = context.Saga.Price,
                             CorrelationId = context.Saga.CorrelationId
-                        })),
+                        }))
+                    .TransitionTo(ProcessingPayment),
                 When(AskForReservationStatusEvent)
                     .RespondAsync(context => context.Init<AskForReservationStatusReplyEvent>(
                         new AskForReservationStatusReplyEvent()
