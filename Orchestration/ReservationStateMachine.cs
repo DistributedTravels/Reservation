@@ -322,7 +322,10 @@ namespace Reservation.Orchestration
                     {
                         Destination = context.Saga.Destination,
                         HotelName = context.Saga.HotelName,
-                        User = context.Saga.CardCredentials.FullName
+                        User = context.Saga.CardCredentials.FullName,
+                        HasOwnTransport = context.Saga.HasOwnTransport,
+                        SmallRooms = context.Saga.SmallRooms,
+                        BigRooms = context.Saga.BigRooms
                     })));
 
             During(SuccessfullyBooked,
