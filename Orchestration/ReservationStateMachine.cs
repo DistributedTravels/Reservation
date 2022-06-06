@@ -313,7 +313,9 @@ namespace Reservation.Orchestration
                             BigRooms = context.Saga.BigRooms,
                             HasInternet = context.Saga.HasInternet,
                             HasBreakfast = context.Saga.HasBreakfast,
-                            HasOwnTransport = context.Saga.HasOwnTransport
+                            HasOwnTransport = context.Saga.HasOwnTransport,
+                            ReservationId = context.Saga.ReservationId,
+                            HasDiscount = context.Saga.HasPromotionCode
                         }
                     }))
                 .Unschedule(ReservationTimeoutEvent)

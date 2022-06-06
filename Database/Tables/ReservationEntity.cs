@@ -28,6 +28,11 @@ namespace Reservation.Database.Tables
         public bool HasInternet { get; set; }
         public bool HasBreakfast { get; set; }
         public bool HasOwnTransport { get; set; }
+        public double TransportPricePerSeat { get; set; }
+        public double HotelPrice { get; set; }
+        public double TotalPrice { get; set; }
+        public Guid ReservationId { get; set; }
+        public bool HasDiscount { get; set; }
 
         public void SetFields(ReservationDto dto)
         {
@@ -51,6 +56,11 @@ namespace Reservation.Database.Tables
             this.HasInternet = dto.HasInternet;
             this.HasBreakfast = dto.HasBreakfast;
             this.HasOwnTransport = dto.HasOwnTransport;
+            this.TransportPricePerSeat = dto.TransportPricePerSeat;
+            this.HotelPrice = dto.HotelPrice;
+            this.TotalPrice = dto.TotalPrice;
+            this.ReservationId = dto.ReservationId;
+            this.HasDiscount = dto.HasDiscount;
         }
         public ReservationDto ToReservationDto()
         {
@@ -75,8 +85,33 @@ namespace Reservation.Database.Tables
                 BigRooms = this.BigRooms,
                 HasInternet = this.HasInternet,
                 HasBreakfast = this.HasBreakfast,
-                HasOwnTransport = this.HasOwnTransport
+                HasOwnTransport = this.HasOwnTransport,
+                TransportPricePerSeat = this.TransportPricePerSeat,
+                HotelPrice = this.HotelPrice,
+                TotalPrice = this.TotalPrice,
+                ReservationId = this.ReservationId
+                HasDiscount = this.HasDiscount
             };
+        }
+
+        public void ApplyChanges(ReservationChangeEntity reservationChange)
+        {
+            // hotel changes
+            if(reservationChange.HotelId != -1)
+            {
+                this.HotelName = reservationChange.HotelName;
+                this.HotelPrice = reservationChange.ChangeInHotelPrice;
+                this.HasBreakfast = this.HasBreakfast && reservationChange.BreakfastAvailable;
+                this.HasInternet = this.HasInternet && reservationChange.WifiAvailable;
+                this.Status = reservationChange.HotelAvailable ? this.Status : "unavailable";
+            }
+            // transport changes
+            else
+            {
+                this.TransportPricePerSeat = reservationChange.ChangeInTransportPrice;
+                this.HasOwnTransport = !(!this.HasOwnTransport && reservationChange.PlaneAvailable);
+            }
+            this.TotalPrice = (this.HotelPrice + (this.HasOwnTransport ? 0.0 : this.NumberOfPeople * this.TransportPricePerSeat)) * 1.5 * (this.HasDiscount ? 0.9 : 1.0);
         }
     }
 }

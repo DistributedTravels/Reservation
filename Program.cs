@@ -22,6 +22,7 @@ builder.Services.AddDbContext<ReservationsContext>(
         .EnableDetailedErrors()
 );
 builder.Services.AddScoped<IReservationService, ReservationService>();
+builder.Services.AddScoped<IReservationChangesService, ReservationChangesService>();
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.AddConsumer<GetReservationsFromDatabaseEventConsumer>(context =>
@@ -30,6 +31,11 @@ builder.Services.AddMassTransit(cfg =>
         context.UseInMemoryOutbox();
     });
     cfg.AddConsumer<SaveReservationToDatabaseEventConsumer>(context =>
+    {
+        context.UseMessageRetry(r => r.Interval(3, 1000));
+        context.UseInMemoryOutbox();
+    });
+    cfg.AddConsumer<ChangesInReservationsEventConsumer>(context =>
     {
         context.UseMessageRetry(r => r.Interval(3, 1000));
         context.UseInMemoryOutbox();

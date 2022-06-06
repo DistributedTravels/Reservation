@@ -8,9 +8,11 @@ namespace Reservation.Database
         public ReservationsContext(DbContextOptions<ReservationsContext> options) : base(options) { }
         public ReservationsContext() { }
         public DbSet<ReservationEntity> Reservations { get; set; }
+        public DbSet<ReservationChangeEntity> ReservationChanges { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<ReservationEntity>().ToTable("Reservation"); // table name overwrite (removing the plural "s")
+            modelBuilder.Entity<ReservationChangeEntity>().ToTable("ReservationChange");
         }
     }
 }
