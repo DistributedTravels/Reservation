@@ -89,7 +89,7 @@ namespace Reservation.Database.Tables
                 TransportPricePerSeat = this.TransportPricePerSeat,
                 HotelPrice = this.HotelPrice,
                 TotalPrice = this.TotalPrice,
-                ReservationId = this.ReservationId
+                ReservationId = this.ReservationId,
                 HasDiscount = this.HasDiscount
             };
         }
