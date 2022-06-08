@@ -103,7 +103,7 @@ namespace Reservation.Database.Tables
                 this.HotelPrice = reservationChange.ChangeInHotelPrice;
                 this.HasBreakfast = this.HasBreakfast && reservationChange.BreakfastAvailable;
                 this.HasInternet = this.HasInternet && reservationChange.WifiAvailable;
-                this.Status = reservationChange.HotelAvailable ? this.Status : "unavailable";
+                this.Status = reservationChange.HotelAvailable && reservationChange.ReservationAvailable ? this.Status : "unavailable";
             }
             // transport changes
             else
