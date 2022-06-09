@@ -315,7 +315,9 @@ namespace Reservation.Orchestration
                             HasBreakfast = context.Saga.HasBreakfast,
                             HasOwnTransport = context.Saga.HasOwnTransport,
                             ReservationId = context.Saga.ReservationId,
-                            HasDiscount = context.Saga.HasPromotionCode
+                            HasDiscount = context.Saga.HasPromotionCode,
+                            HotelPrice = context.Saga.HotelPrice,
+                            TotalPrice = context.Saga.Price
                         }
                     }))
                 .Unschedule(ReservationTimeoutEvent)
